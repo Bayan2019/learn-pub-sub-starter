@@ -29,3 +29,10 @@ The starter code contains a few interesting things
 3. Run the container.
     ```sh
     docker run -d --rm --name rabbitmq -p 61613:5672 -p 15672:15672 rabbitmq-stomp
+
+## Publishers & Queues
+
+### Exchanges and Queues
+
+Let's update our server to publish pause/resume messages to an **exchange** on a specific routing key.
+The server can then communicate with all the various players of the game to let them know when the game is paused or resumed. 
