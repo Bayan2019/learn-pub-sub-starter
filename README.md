@@ -36,3 +36,13 @@ The starter code contains a few interesting things
 
 Let's update our server to publish pause/resume messages to an **exchange** on a specific routing key.
 The server can then communicate with all the various players of the game to let them know when the game is paused or resumed. 
+
+### Decoupling
+
+## Subscribers & Routing
+
+## Delivery
+
+## Serialization
+
+## Scalability
