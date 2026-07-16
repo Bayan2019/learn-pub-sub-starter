@@ -43,6 +43,8 @@ The server can then communicate with all the various players of the game to let 
 
 ## Subscribers & Routing
 
+### Routing Patterns
+
 ## Delivery
 
 ## Serialization

@@ -24,6 +24,11 @@ func main() {
 	defer conn.Close()
 	fmt.Println("Peril game client connected to RabbitMQ!")
 
+	publishCh, err := conn.Channel()
+	if err != nil {
+		log.Fatalf("could not create channel: %v", err)
+	}
+
 	// Ch 3. Publishers & Queues Lv 4. Transient Queues
 	// Use the ClientWelcome() function in internal/gamelogic
 	// to prompt the user for a username.
@@ -83,6 +88,18 @@ func main() {
 		log.Fatalf("could not subscribe to pause: %v", err)
 	}
 
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.ArmyMovesPrefix+"."+gs.GetUsername(),
+		routing.ArmyMovesPrefix+".*",
+		pubsub.SimpleQueueTransient,
+		handlerMove(gs),
+	)
+	if err != nil {
+		log.Fatalf("could not subscribe to move: %v", err)
+	}
+
 	// Ch 3. Publishers & Queues Lv 6. Client REPL
 	// Add a REPL loop similar to what you did
 	// in the cmd/server application.
@@ -101,13 +118,26 @@ func main() {
 			// It accepts two arguments:
 			// the destination, and the ID of the unit.
 			// Call the gamestate.CommandMove method
-			_, err := gs.CommandMove(words)
+			move, err := gs.CommandMove(words)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
 
 			// TODO: publish the move
+
+			err = pubsub.PublishJSON(
+				publishCh,
+				routing.ExchangePerilTopic,
+				routing.ArmyMovesPrefix+"."+move.Player.Username,
+				move,
+			)
+			if err != nil {
+				log.Fatalf("could not publish to move: %v", err)
+				continue
+			}
+			log.Println("Publishing move game state")
+			fmt.Printf("Moved %v units to %s\n", len(move.Units), move.ToLocation)
 		case "spawn":
 			// Ch 3. Publishers & Queues Lv 6. Client REPL
 			// The spawn command allows a player
