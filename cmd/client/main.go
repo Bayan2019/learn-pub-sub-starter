@@ -34,24 +34,24 @@ func main() {
 
 	// Ch 3. Publishers & Queues Lv 4. Transient Queues
 	// Declare and bind a transient queue
-	_, queue, err := pubsub.DeclareAndBind(
-		conn,
-		// exchange: peril_direct (this is a constant in the internal/routing package)
-		routing.ExchangePerilDirect,
-		// queueName: pause.username where username is the user's input.
-		// The pause section of the name is the routing key constant
-		// in the internal/routing package
-		// and is joined by a ..
-		routing.PauseKey+"."+username,
-		// routingKey: pause (this is a constant in the internal/routing package)
-		routing.PauseKey,
-		// queueType: transient
-		pubsub.SimpleQueueTransient,
-	)
-	if err != nil {
-		log.Fatalf("could not subscribe to pause: %v", err)
-	}
-	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
+	// _, queue, err := pubsub.DeclareAndBind(
+	// 	conn,
+	// 	// exchange: peril_direct (this is a constant in the internal/routing package)
+	// 	routing.ExchangePerilDirect,
+	// 	// queueName: pause.username where username is the user's input.
+	// 	// The pause section of the name is the routing key constant
+	// 	// in the internal/routing package
+	// 	// and is joined by a ..
+	// 	routing.PauseKey+"."+username,
+	// 	// routingKey: pause (this is a constant in the internal/routing package)
+	// 	routing.PauseKey,
+	// 	// queueType: transient
+	// 	pubsub.SimpleQueueTransient,
+	// )
+	// if err != nil {
+	// 	log.Fatalf("could not subscribe to pause: %v", err)
+	// }
+	// fmt.Printf("Queue %v declared and bound!\n", queue.Name)
 
 	// Ch 3. Publishers & Queues Lv 4. Transient Queues
 	// wait for ctrl+c
@@ -66,6 +66,22 @@ func main() {
 	// use the NewGameState function in internal/gamelogic
 	// to create a new game state.
 	gs := gamelogic.NewGameState(username)
+
+	// Ch 4. Subscribers & Routings Lv 1. Consumers
+	// after creating the game state,
+	// replace your previous DeclareAndBind call
+	// with pubsub.SubscribeJSON
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilDirect,
+		routing.PauseKey+"."+gs.GetUsername(),
+		routing.PauseKey,
+		pubsub.SimpleQueueTransient,
+		handlerPause(gs),
+	)
+	if err != nil {
+		log.Fatalf("could not subscribe to pause: %v", err)
+	}
 
 	// Ch 3. Publishers & Queues Lv 6. Client REPL
 	// Add a REPL loop similar to what you did
