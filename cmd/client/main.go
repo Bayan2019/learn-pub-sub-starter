@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 
 	"github.com/Bayan2019/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/Bayan2019/learn-pub-sub-starter/internal/pubsub"
@@ -59,8 +57,70 @@ func main() {
 	// wait for ctrl+c
 	// After declaring and binding the queue,
 	// the client should wait for a Ctrl+C signal to exit.
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	<-signalChan
-	fmt.Println("RabbitMQ connection closed.")
+	// signalChan := make(chan os.Signal, 1)
+	// signal.Notify(signalChan, os.Interrupt)
+	// <-signalChan
+	// fmt.Println("RabbitMQ connection closed.")
+
+	// Ch 3. Publishers & Queues Lv 6. Client REPL
+	// use the NewGameState function in internal/gamelogic
+	// to create a new game state.
+	gs := gamelogic.NewGameState(username)
+
+	// Ch 3. Publishers & Queues Lv 6. Client REPL
+	// Add a REPL loop similar to what you did
+	// in the cmd/server application.
+	for {
+		// Ch 3. Publishers & Queues Lv 6. Client REPL
+		// the "words" from the GetInput command.
+		words := gamelogic.GetInput()
+		if len(words) == 0 {
+			continue
+		}
+		switch words[0] {
+		case "move":
+			// Ch 3. Publishers & Queues Lv 6. Client REPL
+			// The move command allows a player
+			// to move their units to a new location.
+			// It accepts two arguments:
+			// the destination, and the ID of the unit.
+			// Call the gamestate.CommandMove method
+			_, err := gs.CommandMove(words)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			// TODO: publish the move
+		case "spawn":
+			// Ch 3. Publishers & Queues Lv 6. Client REPL
+			// The spawn command allows a player
+			// to add a new unit to the map under their control.
+			// Use the gamestate.CommandSpawn method
+			err = gs.CommandSpawn(words)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+		case "status":
+			// Ch 3. Publishers & Queues Lv 6. Client REPL
+			// The status command uses the gamestate.CommandStatus method
+			gs.CommandStatus()
+		case "help":
+			// Ch 3. Publishers & Queues Lv 6. Client REPL
+			// The help command uses the gamelogic.PrintClientHelp function
+			gamelogic.PrintClientHelp()
+		case "spam":
+			// TODO: publish n malicious logs
+			fmt.Println("Spamming not allowed yet!")
+		case "quit":
+			// Ch 3. Publishers & Queues Lv 6. Client REPL
+			// The quit command uses the gamelogic.PrintQuit function
+			// to print a message, then exit the REPL.
+			gamelogic.PrintQuit()
+			return
+		default:
+			fmt.Println("unknown command")
+		}
+	}
 }
