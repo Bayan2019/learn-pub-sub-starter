@@ -39,6 +39,8 @@ The server can then communicate with all the various players of the game to let 
 
 ### Decoupling
 
+### Durable
+
 ## Subscribers & Routing
 
 ## Delivery

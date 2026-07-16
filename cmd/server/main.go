@@ -29,6 +29,25 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not create channel: %v", err)
 	}
+
+	// Ch 3. Publishers & Queues Lv 9. Durable
+	// to declare and bind a queue to the new peril_topic exchange.
+	_, queue, err := pubsub.DeclareAndBind(
+		conn,
+		// new peril_topic exchange
+		routing.ExchangePerilTopic,
+		// named game_logs.
+		routing.GameLogSlug,
+		// The routing key should be game_logs.*.
+		routing.GameLogSlug+".*",
+		// It should be a durable queue
+		pubsub.SimpleQueueDurable,
+	)
+	if err != nil {
+		log.Fatalf("could not subscribe to pause: %v", err)
+	}
+	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
+
 	// Ch 3. Publishers & Queues Lv 5. Decoupling
 	// Run the PrintServerHelp function in internal/gamelogic
 	// as the server starts up so that you can see the commands
