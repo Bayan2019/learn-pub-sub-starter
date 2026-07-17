@@ -94,10 +94,26 @@ func main() {
 		routing.ArmyMovesPrefix+"."+gs.GetUsername(),
 		routing.ArmyMovesPrefix+".*",
 		pubsub.SimpleQueueTransient,
-		handlerMove(gs),
+		// 5. Delivery Lv 5. Nack Requeue
+		// Update the "move" handler
+		// (and its registration in main.go)
+		handlerMove(gs, publishCh),
 	)
 	if err != nil {
 		log.Fatalf("could not subscribe to move: %v", err)
+	}
+	// 5. Delivery Lv 5. Nack Requeue
+	err = pubsub.SubscribeJSON(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.WarRecognitionsPrefix,
+		routing.WarRecognitionsPrefix+".*",
+		// Use a durable queue with the war handler.
+		pubsub.SimpleQueueDurable,
+		handlerWar(gs),
+	)
+	if err != nil {
+		log.Fatalf("could not subscribe to war declarations: %v", err)
 	}
 
 	// Ch 3. Publishers & Queues Lv 6. Client REPL
