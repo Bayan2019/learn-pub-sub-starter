@@ -71,11 +71,16 @@ func handlerMove(
 			)
 			if err != nil {
 				fmt.Printf("error: %s\n", err)
+				// If publishing the war declaration fails, "NackRequeue" the message.
 				return pubsub.NackRequeue
 			}
 			// 5. Delivery Lv 5. Nack Requeue
 			// NackRequeue the message...
-			return pubsub.NackRequeue
+			// return pubsub.NackRequeue
+			// 5. Delivery Lv 6. Nack Requeue Fix
+			// Otherwise, "Ack" the message.
+			return pubsub.Ack
+
 		}
 		fmt.Println("error: unknown move outcome")
 		return pubsub.NackDiscard
