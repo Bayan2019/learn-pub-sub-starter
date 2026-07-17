@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/Bayan2019/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/Bayan2019/learn-pub-sub-starter/internal/pubsub"
@@ -110,7 +111,8 @@ func main() {
 		routing.WarRecognitionsPrefix+".*",
 		// Use a durable queue with the war handler.
 		pubsub.SimpleQueueDurable,
-		handlerWar(gs),
+		// Ch 6. Serialization Lv 2. Game Logs
+		handlerWar(gs, publishCh),
 	)
 	if err != nil {
 		log.Fatalf("could not subscribe to war declarations: %v", err)
@@ -185,4 +187,30 @@ func main() {
 			fmt.Println("unknown command")
 		}
 	}
+}
+
+// Ch 6. Serialization Lv 2. Game Logs
+// Create a reusable function to publish a GameLog struct:
+func publishGameLog(
+	publishCh *amqp.Channel,
+	username, msg string,
+) error {
+	return pubsub.PublishGob(
+		publishCh,
+		// The topic exchange.
+		routing.ExchangePerilTopic,
+		// The GameLogSlug.username routing key,
+		// where username is the name of the player
+		// who initiated the war,
+		// and GameLogSlug is a constant
+		// in the routing package.
+		routing.GameLogSlug+"."+username,
+		// The GameLog struct should be serialized
+		// using the PublishGob function.
+		routing.GameLog{
+			Username:    username,
+			CurrentTime: time.Now(),
+			Message:     msg,
+		},
+	)
 }

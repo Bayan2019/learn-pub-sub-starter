@@ -91,8 +91,12 @@ func handlerMove(
 // Create a new handler that consumes
 // all the war messages that the "move" handler publishes,
 // no matter the username in the routing key.
+// Ch 6. Serialization Lv 2. Game Logs
+// Update the war handler function in the client to publish game logs.
 func handlerWar(
 	gs *gamelogic.GameState,
+	// Ch 6. Serialization Lv 2. Game Logs
+	publishCh *amqp.Channel,
 ) func(dw gamelogic.RecognitionOfWar) pubsub.Acktype {
 	return func(dw gamelogic.RecognitionOfWar) pubsub.Acktype {
 		// 5. Delivery Lv 5. Nack Requeue
@@ -100,7 +104,10 @@ func handlerWar(
 		defer fmt.Print("> ")
 		// 5. Delivery Lv 5. Nack Requeue
 		// Call the gamestate's HandleWar method with the message's body.
-		warOutcome, _, _ := gs.HandleWar(dw)
+		// Ch 6. Serialization Lv 2. Game Logs
+		// Capture the winner and loser return values
+		// from the GameState's HandleWar method
+		warOutcome, winner, loser := gs.HandleWar(dw)
 		switch warOutcome {
 		case gamelogic.WarOutcomeNotInvolved:
 			// NackRequeue the message so
@@ -111,12 +118,57 @@ func handlerWar(
 			return pubsub.NackDiscard
 		case gamelogic.WarOutcomeOpponentWon:
 			// Ack the message.
+			// Ch 6. Serialization Lv 2. Game Logs
+			err := publishGameLog(
+				publishCh,
+				gs.GetUsername(),
+				fmt.Sprintf(
+					"%s won a war against %s",
+					winner,
+					loser,
+				),
+			)
+			if err != nil {
+				// Ch 6. Serialization Lv 2. Game Logs
+				// If a publishing fails, NackRequeue,
+				return pubsub.NackRequeue
+			}
 			return pubsub.Ack
 		case gamelogic.WarOutcomeYouWon:
 			// Ack the message.
+			// Ch 6. Serialization Lv 2. Game Logs
+			err := publishGameLog(
+				publishCh,
+				gs.GetUsername(),
+				fmt.Sprintf(
+					"%s won a war against %s",
+					winner,
+					loser,
+				),
+			)
+			if err != nil {
+				// Ch 6. Serialization Lv 2. Game Logs
+				// If a publishing fails, NackRequeue,
+				return pubsub.NackRequeue
+			}
 			return pubsub.Ack
 		case gamelogic.WarOutcomeDraw:
 			// Ack the message.
+			// Ch 6. Serialization Lv 2. Game Logs
+			err := publishGameLog(
+				publishCh,
+				gs.GetUsername(),
+				fmt.Sprintf(
+					"A war between %s and %s resulted in a draw",
+					winner,
+					loser,
+				),
+			)
+			if err != nil {
+				// Ch 6. Serialization Lv 2. Game Logs
+				// If a publishing fails, NackRequeue,
+				return pubsub.NackRequeue
+			}
 			return pubsub.Ack
 		}
 		// if it's anything else,

@@ -173,3 +173,86 @@ func SubscribeJSON[T any](
 	}()
 	return nil
 }
+
+// Ch 6. Serialization Lv 3. Consume Logs
+// Add a SubscribeGob function to the internal/pubsub package.
+func SubscribeGob[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T) Acktype,
+	unmarshaller func([]byte) (T, error),
+) error {
+	// Ch 4. Subscribers & Routings Lv 1. Consumers
+	// Call DeclareAndBind
+	// to make sure that the given queue exists
+	// and is bound to the exchange
+	ch, queue, err := DeclareAndBind(
+		conn,
+		exchange,
+		queueName,
+		key,
+		queueType,
+	)
+	if err != nil {
+		return fmt.Errorf("could not declare and bind queue: %v", err)
+	}
+
+	// Ch 4. Subscribers & Routings Lv 1. Consumers
+	// Get a new chan of amqp.Delivery structs
+	// by using the channel.Consume method.
+	msgs, err := ch.Consume(
+		queue.Name, // queue
+		"",         // consumer
+		false,      // auto-ack
+		false,      // exclusive
+		false,      // no-local
+		false,      // no-wait
+		nil,        // args
+	)
+	if err != nil {
+		return fmt.Errorf("could not consume messages: %v", err)
+	}
+
+	// Ch 4. Subscribers & Routings Lv 1. Consumers
+	// Start a goroutine that ranges over the channel of deliveries,
+	// and for each message:
+	go func() {
+		defer ch.Close()
+		for msg := range msgs {
+			target, err := unmarshaller(msg.Body)
+			if err != nil {
+				fmt.Printf("could not unmarshal message: %v\n", err)
+				continue
+			}
+			// Ch 4. Subscribers & Routings Lv 1. Consumers
+			// Call the given handler function with the unmarshaled message
+			returned := handler(target)
+			// Ch 4. Subscribers & Routings Lv 1. Consumers
+			// Acknowledge the message with delivery.Ack(false)
+			// to remove it from the queue
+			// msg.Ack(false)
+
+			// Ch 5. Delivery Lv 2. Ack and Nack
+			// Depending on the returned "acktype",
+			// the goroutine that calls the handler should either call:
+			switch returned {
+			case Ack:
+				// Ack: msg.Ack(false)
+				msg.Ack(false)
+				// fmt.Println("Ack")
+			case NackDiscard:
+				// NackDiscard: msg.Nack(false, false)
+				msg.Nack(false, false)
+				// fmt.Println("NackDiscard")
+			case NackRequeue:
+				// NackRequeue: msg.Nack(false, true)
+				msg.Nack(false, true)
+				// fmt.Println("NackRequeue")
+			}
+		}
+	}()
+	return nil
+}
