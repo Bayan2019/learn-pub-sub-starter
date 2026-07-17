@@ -19,6 +19,14 @@ const (
 	SimpleQueueTransient
 )
 
+// Ch 5. Delivery Lv 2. Ack and Nack
+// An "acktype" should be one of:
+const (
+	Ack Acktype = iota
+	NackDiscard
+	NackRequeue
+)
+
 // Ch 3. Publishers & Queues Lv 4. Transient Queues
 func DeclareAndBind(
 	conn *amqp.Connection,
@@ -47,7 +55,10 @@ func DeclareAndBind(
 		// The noWait parameter should be false.
 		false, // no-wait
 		// The args parameter should be nil.
-		nil, // args
+		// nil,
+		amqp.Table{
+			"x-dead-letter-exchange": "peril_dlx",
+		},
 	)
 	if err != nil {
 		return nil, amqp.Queue{}, fmt.Errorf("could not declare queue: %v", err)
@@ -77,7 +88,10 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	queueType SimpleQueueType, // an enum to represent "durable" or "transient"
-	handler func(T),
+	// Ch 5. Delivery Lv 2. Ack and Nack
+	// Update your internal/pubsub.SubscribeJSON function's handler parameter
+	// to return an "acktype" instead of nothing.
+	handler func(T) Acktype,
 ) error {
 	// Ch 4. Subscribers & Routings Lv 1. Consumers
 	// Call DeclareAndBind
@@ -132,11 +146,29 @@ func SubscribeJSON[T any](
 			}
 			// Ch 4. Subscribers & Routings Lv 1. Consumers
 			// Call the given handler function with the unmarshaled message
-			handler(target)
+			returned := handler(target)
 			// Ch 4. Subscribers & Routings Lv 1. Consumers
 			// Acknowledge the message with delivery.Ack(false)
 			// to remove it from the queue
-			msg.Ack(false)
+			// msg.Ack(false)
+
+			// Ch 5. Delivery Lv 2. Ack and Nack
+			// Depending on the returned "acktype",
+			// the goroutine that calls the handler should either call:
+			switch returned {
+			case Ack:
+				// Ack: msg.Ack(false)
+				msg.Ack(false)
+				fmt.Println("Ack")
+			case NackDiscard:
+				// NackDiscard: msg.Nack(false, false)
+				msg.Nack(false, false)
+				fmt.Println("NackDiscard")
+			case NackRequeue:
+				// NackRequeue: msg.Nack(false, true)
+				msg.Nack(false, true)
+				fmt.Println("NackRequeue")
+			}
 		}
 	}()
 	return nil
