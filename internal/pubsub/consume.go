@@ -164,6 +164,13 @@ func subscribe[T any](
 		return fmt.Errorf("could not declare and bind queue: %v", err)
 	}
 
+	// Ch 7. Scalability Lv 3. Prefetch
+	//  It should call channel.Qos before calling channel.Consume
+	err = ch.Qos(10, 0, false)
+	if err != nil {
+		return fmt.Errorf("could not set channel.Qos(10, 0, false): %v", err)
+	}
+
 	// Ch 4. Subscribers & Routings Lv 1. Consumers
 	// Get a new chan of amqp.Delivery structs
 	// by using the channel.Consume method.
