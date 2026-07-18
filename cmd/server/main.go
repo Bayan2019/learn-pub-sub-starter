@@ -32,7 +32,26 @@ func main() {
 
 	// Ch 3. Publishers & Queues Lv 9. Durable
 	// to declare and bind a queue to the new peril_topic exchange.
-	_, queue, err := pubsub.DeclareAndBind(
+	// _, queue, err := pubsub.DeclareAndBind(
+	// 	conn,
+	// 	// new peril_topic exchange
+	// 	routing.ExchangePerilTopic,
+	// 	// named game_logs.
+	// 	routing.GameLogSlug,
+	// 	// The routing key should be game_logs.*.
+	// 	routing.GameLogSlug+".*",
+	// 	// It should be a durable queue
+	// 	pubsub.SimpleQueueDurable,
+	// )
+	// if err != nil {
+	// 	log.Fatalf("could not subscribe to pause: %v", err)
+	// }
+	// fmt.Printf("Queue %v declared and bound!\n", queue.Name)
+
+	// Ch 6. Serialization Lv 3. Consume Logs
+	// Update the server to SubscribeGob
+	// to the game_logs queue instead of just declaring it.
+	err = pubsub.SubscribeGob(
 		conn,
 		// new peril_topic exchange
 		routing.ExchangePerilTopic,
@@ -40,13 +59,13 @@ func main() {
 		routing.GameLogSlug,
 		// The routing key should be game_logs.*.
 		routing.GameLogSlug+".*",
-		// It should be a durable queue
+		// Use a durable queue with the war handler.
 		pubsub.SimpleQueueDurable,
+		handlerLogs(),
 	)
 	if err != nil {
-		log.Fatalf("could not subscribe to pause: %v", err)
+		log.Fatalf("could not subscribe to war declarations: %v", err)
 	}
-	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
 
 	// Ch 3. Publishers & Queues Lv 5. Decoupling
 	// Run the PrintServerHelp function in internal/gamelogic
@@ -56,7 +75,6 @@ func main() {
 
 	// Ch 3. Publishers & Queues Lv 5. Decoupling
 	// Start an infinite loop
-OuterLoop:
 	for {
 		// Ch 3. Publishers & Queues Lv 5. Decoupling
 		// use the GetInput function in internal/gamelogic
@@ -121,7 +139,8 @@ OuterLoop:
 				// If it's "quit",
 				// log to the console that you're exiting, and break out of the loop.
 				log.Println("Quiting the server")
-				break OuterLoop
+				// break OuterLoop
+				return
 			default:
 				log.Printf("We don't understand command: %s\n", inputs[0])
 			}

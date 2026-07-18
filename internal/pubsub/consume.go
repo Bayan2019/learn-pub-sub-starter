@@ -1,6 +1,8 @@
 package pubsub
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 
@@ -30,9 +32,7 @@ const (
 // Ch 3. Publishers & Queues Lv 4. Transient Queues
 func DeclareAndBind(
 	conn *amqp.Connection,
-	exchange,
-	queueName,
-	key string,
+	exchange, queueName, key string,
 	queueType SimpleQueueType,
 ) (*amqp.Channel, amqp.Queue, error) {
 	// Ch 3. Publishers & Queues Lv 4. Transient Queues
@@ -84,46 +84,13 @@ func DeclareAndBind(
 
 func SubscribeJSON[T any](
 	conn *amqp.Connection,
-	exchange,
-	queueName,
-	key string,
+	exchange, queueName, key string,
 	queueType SimpleQueueType, // an enum to represent "durable" or "transient"
 	// Ch 5. Delivery Lv 2. Ack and Nack
 	// Update your internal/pubsub.SubscribeJSON function's handler parameter
 	// to return an "acktype" instead of nothing.
 	handler func(T) Acktype,
 ) error {
-	// Ch 4. Subscribers & Routings Lv 1. Consumers
-	// Call DeclareAndBind
-	// to make sure that the given queue exists
-	// and is bound to the exchange
-	ch, queue, err := DeclareAndBind(
-		conn,
-		exchange,
-		queueName,
-		key,
-		queueType,
-	)
-	if err != nil {
-		return fmt.Errorf("could not declare and bind queue: %v", err)
-	}
-
-	// Ch 4. Subscribers & Routings Lv 1. Consumers
-	// Get a new chan of amqp.Delivery structs
-	// by using the channel.Consume method.
-	msgs, err := ch.Consume(
-		queue.Name, // queue
-		"",         // consumer
-		false,      // auto-ack
-		false,      // exclusive
-		false,      // no-local
-		false,      // no-wait
-		nil,        // args
-	)
-	if err != nil {
-		return fmt.Errorf("could not consume messages: %v", err)
-	}
-
 	// Ch 4. Subscribers & Routings Lv 1. Consumers
 	// Unmarshal the body (raw bytes) of each message delivery
 	// into the (generic) T type.
@@ -133,50 +100,47 @@ func SubscribeJSON[T any](
 		return target, err
 	}
 
-	// Ch 4. Subscribers & Routings Lv 1. Consumers
-	// Start a goroutine that ranges over the channel of deliveries,
-	// and for each message:
-	go func() {
-		defer ch.Close()
-		for msg := range msgs {
-			target, err := unmarshaller(msg.Body)
-			if err != nil {
-				fmt.Printf("could not unmarshal message: %v\n", err)
-				continue
-			}
-			// Ch 4. Subscribers & Routings Lv 1. Consumers
-			// Call the given handler function with the unmarshaled message
-			returned := handler(target)
-			// Ch 4. Subscribers & Routings Lv 1. Consumers
-			// Acknowledge the message with delivery.Ack(false)
-			// to remove it from the queue
-			// msg.Ack(false)
-
-			// Ch 5. Delivery Lv 2. Ack and Nack
-			// Depending on the returned "acktype",
-			// the goroutine that calls the handler should either call:
-			switch returned {
-			case Ack:
-				// Ack: msg.Ack(false)
-				msg.Ack(false)
-				// fmt.Println("Ack")
-			case NackDiscard:
-				// NackDiscard: msg.Nack(false, false)
-				msg.Nack(false, false)
-				// fmt.Println("NackDiscard")
-			case NackRequeue:
-				// NackRequeue: msg.Nack(false, true)
-				msg.Nack(false, true)
-				// fmt.Println("NackRequeue")
-			}
-		}
-	}()
-	return nil
+	return subscribe(
+		conn,
+		exchange, queueName, key,
+		queueType,
+		handler,
+		unmarshaller,
+	)
 }
 
 // Ch 6. Serialization Lv 3. Consume Logs
 // Add a SubscribeGob function to the internal/pubsub package.
 func SubscribeGob[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T) Acktype,
+) error {
+	// Ch 6. Serialization Lv 1. Data Serialization
+	unmarshaller := func(data []byte) (T, error) {
+		buffer := bytes.NewBuffer(data)
+		decoder := gob.NewDecoder(buffer)
+		var gl T
+		err := decoder.Decode(&gl)
+		return gl, err
+	}
+
+	// Ch 6. Serialization Lv 3. Consume Logs
+	return subscribe(
+		conn,
+		exchange, queueName, key,
+		queueType,
+		handler,
+		unmarshaller,
+	)
+}
+
+// Ch 6. Serialization Lv 3. Consume Logs
+// Add a SubscribeGob function to the internal/pubsub package.
+func subscribe[T any](
 	conn *amqp.Connection,
 	exchange,
 	queueName,
