@@ -62,7 +62,7 @@ func PublishGob[T any](ch *amqp.Channel, exchange, key string, val T) error {
 		amqp.Publishing{
 			// Ch 6. Serialization Lv 2. Game Logs
 			// Set the ContentType option to application/gob
-			ContentType: "application/json",
+			ContentType: "application/gob",
 			Body:        buffer.Bytes(),
 		},
 	)

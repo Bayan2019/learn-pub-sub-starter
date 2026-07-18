@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/Bayan2019/learn-pub-sub-starter/internal/gamelogic"
@@ -39,6 +40,20 @@ func main() {
 	}
 
 	// Ch 3. Publishers & Queues Lv 4. Transient Queues
+	// wait for ctrl+c
+	// After declaring and binding the queue,
+	// the client should wait for a Ctrl+C signal to exit.
+	// signalChan := make(chan os.Signal, 1)
+	// signal.Notify(signalChan, os.Interrupt)
+	// <-signalChan
+	// fmt.Println("RabbitMQ connection closed.")
+
+	// Ch 3. Publishers & Queues Lv 6. Client REPL
+	// use the NewGameState function in internal/gamelogic
+	// to create a new game state.
+	gs := gamelogic.NewGameState(username)
+
+	// Ch 3. Publishers & Queues Lv 4. Transient Queues
 	// Declare and bind a transient queue
 	// _, queue, err := pubsub.DeclareAndBind(
 	// 	conn,
@@ -58,20 +73,6 @@ func main() {
 	// 	log.Fatalf("could not subscribe to pause: %v", err)
 	// }
 	// fmt.Printf("Queue %v declared and bound!\n", queue.Name)
-
-	// Ch 3. Publishers & Queues Lv 4. Transient Queues
-	// wait for ctrl+c
-	// After declaring and binding the queue,
-	// the client should wait for a Ctrl+C signal to exit.
-	// signalChan := make(chan os.Signal, 1)
-	// signal.Notify(signalChan, os.Interrupt)
-	// <-signalChan
-	// fmt.Println("RabbitMQ connection closed.")
-
-	// Ch 3. Publishers & Queues Lv 6. Client REPL
-	// use the NewGameState function in internal/gamelogic
-	// to create a new game state.
-	gs := gamelogic.NewGameState(username)
 
 	// Ch 4. Subscribers & Routings Lv 1. Consumers
 	// after creating the game state,
@@ -176,7 +177,38 @@ func main() {
 			gamelogic.PrintClientHelp()
 		case "spam":
 			// TODO: publish n malicious logs
-			fmt.Println("Spamming not allowed yet!")
+			// Ch 7. Scalability Lv 2. Backpressure
+			//  update the section of code that handles the spam command
+			if len(words) < 2 {
+				// Ensure that a second "word" was provided in the command.
+				fmt.Println("usage: spam <n>")
+				continue
+			}
+			// Ch 7. Scalability Lv 2. Backpressure
+			// Convert that word into an integer.
+			n, err := strconv.Atoi(words[1])
+			if err != nil {
+				fmt.Printf("error: %s is not a valid number\n", words[1])
+				continue
+			}
+			// Ch 7. Scalability Lv 2. Backpressure
+			// Do the following n times
+			for i := 0; i < n; i++ {
+				// Ch 7. Scalability Lv 2. Backpressure
+				// Use gamelogic.GetMaliciousLog to get a malicious log message.
+				msg := gamelogic.GetMaliciousLog()
+				// Ch 7. Scalability Lv 2. Backpressure
+				// Publish the log message (a struct) to Rabbit
+				err = publishGameLog(
+					publishCh,
+					username,
+					msg,
+				)
+				if err != nil {
+					log.Fatalf("could not publish to spam: %v", err)
+					continue
+				}
+			}
 		case "quit":
 			// Ch 3. Publishers & Queues Lv 6. Client REPL
 			// The quit command uses the gamelogic.PrintQuit function
@@ -198,6 +230,8 @@ func publishGameLog(
 	return pubsub.PublishGob(
 		publishCh,
 		// The topic exchange.
+		// Ch 7. Scalability Lv 2. Backpressure
+		// Exchange: peril_topic
 		routing.ExchangePerilTopic,
 		// The GameLogSlug.username routing key,
 		// where username is the name of the player
